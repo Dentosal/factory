@@ -1,0 +1,27 @@
+[package]
+name = "factory"
+version = "0.1.0"
+description = "Flexible parallel build pipeline"
+authors = ["Hannes Karppila <hannes.karppila@gmail.com>"]
+edition = "2018"
+
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/Dentosal/factory"
+
+categories = ["development-tools::build-utils"]
+keywords = ["build", "build-system", "python"]
+
+publish = false
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.5"
+
+pyo3 = "0.8.2"
+
+num_cpus = "1.10.1"
+crossbeam-channel = "0.3"
+
+indicatif = "0.12"
