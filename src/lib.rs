@@ -6,7 +6,6 @@
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use pyo3::{prelude::*, types::*};
 use std::collections::HashMap;
-use std::fs;
 use std::thread::{self, JoinHandle};
 
 use indicatif::{ProgressBar, ProgressStyle};
@@ -180,7 +179,7 @@ pub fn check_python(py: Python) -> PyResult<()> {
 
 /// Verify Python version
 pub fn get_py_factory(py: Python) -> PyResult<&PyModule> {
-    let py_f_code = String::from_utf8(fs::read("src/python/factory.py").unwrap()).unwrap();
+    let py_f_code = include_str!("python/factory.py");
     let py_factory = PyModule::from_code(py, &py_f_code, "factory.py", "factory")?;
     Ok(py_factory)
 }
