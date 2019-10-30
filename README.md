@@ -3,6 +3,8 @@
 * Automatically parallelizes build steps
 * Configured with a Python script
 
+![example image](images/rust_os.png)
+
 ## Requirements
 
 Latest Rust nightly.
