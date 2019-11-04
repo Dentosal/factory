@@ -1,0 +1,2 @@
+config = "factory.py"
+stats_dot = "target/dot.dot"
