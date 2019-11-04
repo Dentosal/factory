@@ -39,8 +39,9 @@ pub fn to_dot(steps: &[Step], stats: RunStatistics) -> String {
     for s in steps.iter() {
         let stat = stats.commands.get(&s.id);
         dot.push_str(&format!(
-            "node{} [shape=box,label=\"{}: {}\n{}\"]\n",
+            "node{} [shape=box,peripheries={},label=\"{}: {}\n{}\"]\n",
             s.id,
+            if s.target_name.is_some() { 2 } else { 1 },
             s.id,
             s.name,
             stat.map(|st| format!("{:?} {}", st.time, if st.fresh() { "[fresh]" } else { "" }))

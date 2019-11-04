@@ -32,6 +32,18 @@ impl RunStatistics {
     }
 }
 
+/// Assumes ascii-only text, but uses unicode ellipsis
+fn truncate_ellipisis(max_len: usize, s: &str) -> String {
+    assert!(max_len >= 1);
+    if s.len() > max_len {
+        let mut res = s[..(max_len - 1)].to_owned();
+        res.push('\u{2026}');
+        res
+    } else {
+        s.to_owned()
+    }
+}
+
 pub fn run(
     _py: Python,
     steps: &[Step],
@@ -60,14 +72,27 @@ pub fn run(
     let pb = ProgressBar::new(p.total_count());
     pb.set_style(
         ProgressStyle::default_bar()
-            .template("[{elapsed_precise}] {bar:20} {pos:>4}/{len:4} {msg}")
-            .progress_chars("#>-"),
+            .template("[{elapsed_precise}] {bar:20} [{pos:>4}/{len:4}] {msg:36!}")
+            .progress_chars("##-"),
     );
+    pb.enable_steady_tick(100);
 
     loop {
-        pb.set_position(p.completed_count());
-        pb.set_message(&format!("{} running", p.running_count()));
         while let Some(step_id) = p.get_task() {
+            pb.set_position(p.completed_count());
+            let mut ids: Vec<StepId> = p.running_ids().into_iter().collect();
+            ids.sort();
+            pb.set_message(&truncate_ellipisis(
+                36,
+                &format!(
+                    "{}: {:}",
+                    ids.len(),
+                    ids.into_iter()
+                        .map(|id| { step_by_id.get(&id).unwrap().name.clone() })
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            ));
             let step = step_by_id[&step_id];
             if let Some(py_obj) = step.py_obj {
                 let start = std::time::Instant::now();

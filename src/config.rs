@@ -88,6 +88,7 @@ pub fn read<'py>(
         id: start_id,
         requires: HashSet::new(),
         py_obj: None,
+        target_name: None,
         name: "start".to_owned(),
     });
 
@@ -96,7 +97,7 @@ pub fn read<'py>(
         if name_str.starts_with("step_") {
             let py_step = value.call1((root_path,))?;
             let n = name_str.splitn(2, '_').last().unwrap();
-            let new_steps = create_steps(py, py_step, &mut next_id, start_id, &n)?;
+            let new_steps = create_steps(py, py_step, &mut next_id, start_id, &n, true)?;
             assert!(!new_steps.is_empty());
             step_fn_to_id.push((value, new_steps.last().unwrap().id));
             steps.extend(new_steps);
@@ -137,11 +138,12 @@ pub fn read<'py>(
 /// as not all necessary information is available yet. However, tuples
 /// and sets already use `requires` field to mark their internal order.
 fn create_steps<'a>(
-    py: Python,
-    py_step: &'a PyAny,
-    next_id: &mut StepId,
-    requires_id: StepId,
-    step_name: &str,
+    py: Python,           // Python GIL
+    py_step: &'a PyAny,   // Python `Step` object from src/python/factory.py
+    next_id: &mut StepId, // Id for the next step
+    requires_id: StepId,  // Requirement for the next step
+    step_name: &str,      // Name of the current Python step function
+    last_part: bool,      // Is the `step_name` completed after this step
 ) -> PyResult<Vec<Step<'a>>> {
     if py.is_instance::<PyTuple, _>(py_step)? {
         // Tuple, i.e. a sequence of steps
@@ -150,7 +152,14 @@ fn create_steps<'a>(
         let mut steps: Vec<Step> = Vec::new();
         let mut next_requires = requires_id;
         for i in 0..t_len {
-            let new_steps = create_steps(py, tuple.get_item(i), next_id, next_requires, step_name)?;
+            let new_steps = create_steps(
+                py,
+                tuple.get_item(i),
+                next_id,
+                next_requires,
+                step_name,
+                i + 1 == t_len,
+            )?;
             assert!(!new_steps.is_empty());
             next_requires = new_steps.last().unwrap().id; // FIXME: last?
             steps.extend(new_steps);
@@ -165,13 +174,14 @@ fn create_steps<'a>(
             id: next_id.take(),
             requires: HashSet::new(),
             py_obj: None,
+            target_name: Some(step_name.to_owned()),
             name: format!("collect {}", step_name),
         };
 
         // Go through all items
         let mut steps: Vec<Step> = Vec::new();
         for item in set.iter()? {
-            let new_steps = create_steps(py, item?, next_id, requires_id, step_name)?;
+            let new_steps = create_steps(py, item?, next_id, requires_id, step_name, false)?;
             assert!(!new_steps.is_empty());
 
             // Insert `requires` fields
@@ -198,6 +208,11 @@ fn create_steps<'a>(
             id: next_id.take(),
             requires,
             py_obj: Some(py_step),
+            target_name: if last_part {
+                Some(step_name.to_owned())
+            } else {
+                None
+            },
             name: format!("{}: {}", step_name, sub_name),
         }])
     }

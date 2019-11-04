@@ -41,6 +41,10 @@ impl Parallelizer {
         self.total_count() - self.pending_count() - self.running_count()
     }
 
+    pub fn running_ids(&self) -> HashSet<StepId> {
+        self.running.clone()
+    }
+
     pub fn get_task(&mut self) -> Option<StepId> {
         'outer: for p in self.pending.clone().into_iter() {
             for dep in self.graph.dependencies_of(p).iter() {
