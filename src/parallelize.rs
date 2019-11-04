@@ -10,9 +10,6 @@ pub struct Parallelizer {
 }
 impl Parallelizer {
     pub fn from_graph(graph: IdGraph) -> Self {
-        // let target: StepId = graph.targets().into_iter().collect::<Vec<_>>()[0];
-        // println!("{}", target);
-
         let pending = graph.nodes();
         Self {
             graph,

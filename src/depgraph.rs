@@ -22,7 +22,7 @@ impl IdGraph {
         &self.0[&step]
     }
 
-    pub fn targets(&self) -> HashSet<StepId> {
+    pub fn sinks(&self) -> HashSet<StepId> {
         let mut keys = self.nodes();
         for ids in self.0.values() {
             for id in ids.iter() {
@@ -30,6 +30,32 @@ impl IdGraph {
             }
         }
         keys
+    }
+
+    /// Return subgraph targeting only the given id
+    pub fn focus(&self, target: StepId) -> Self {
+        let mut required_steps: HashSet<StepId> = HashSet::new();
+        let mut queue: Vec<StepId> = vec![target];
+        while let Some(id) = queue.pop() {
+            required_steps.insert(id);
+            for dep in self.dependencies_of(id).iter() {
+                if !queue.contains(&dep) {
+                    queue.push(*dep);
+                }
+            }
+        }
+
+        Self(
+            required_steps
+                .iter()
+                .map(|id| {
+                    (
+                        *id,
+                        self.0[id].intersection(&required_steps).copied().collect(),
+                    )
+                })
+                .collect(),
+        )
     }
 }
 /// Produce graphviz dot representation of the dependency graph

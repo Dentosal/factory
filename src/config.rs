@@ -14,6 +14,8 @@ pub struct TomlConfig {
     pub root_dir: Option<PathBuf>,
     /// Python config file
     pub config: PathBuf,
+    /// Default target to execute
+    pub default_target: Option<String>,
     /// Number of threads, logical CPU core count is used by default
     pub threads: Option<usize>,
     /// Output file for graphviz dot file containing build metadata

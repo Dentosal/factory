@@ -17,6 +17,8 @@ fn main() {
         .map(|s| Path::new(s).to_owned())
         .unwrap_or_else(|| env::current_dir().expect("Current directory not accessible"));
 
+    let target_name_arg = args.get(1);
+
     let gil = Python::acquire_gil();
     let py = gil.python();
 
@@ -39,7 +41,11 @@ fn main() {
         })
         .unwrap();
 
-    let stats = factory::run(py, &steps, cfg_dict, &toml_config, py_factory)
+    let target_name = target_name_arg
+        .or_else(|| toml_config.default_target.as_ref())
+        .expect("No target name given");
+
+    let stats = factory::run(py, &steps, target_name, cfg_dict, &toml_config, py_factory)
         .map_err(|e| {
             e.print_and_set_sys_last_vars(py);
         })

@@ -44,15 +44,28 @@ fn truncate_ellipisis(max_len: usize, s: &str) -> String {
     }
 }
 
+fn find_target_id(steps: &[Step], target_name: &str) -> StepId {
+    for step in steps {
+        if step.target_name == Some(target_name.to_owned()) {
+            return step.id;
+        }
+    }
+    panic!("No step named {}", target_name);
+}
+
 pub fn run(
     _py: Python,
     steps: &[Step],
+    target_name: &str,
     cfg_dict: &PyDict,
     toml_config: &TomlConfig,
     _py_factory: &PyModule,
 ) -> PyResult<RunStatistics> {
+    let target = find_target_id(steps, target_name);
     let step_by_id: HashMap<StepId, &Step> = steps.iter().map(|s| (s.id, s)).collect();
-    let mut p = parallelize::Parallelizer::from_graph(depgraph::IdGraph::from_steps(&steps));
+    let mut dep_graph = depgraph::IdGraph::from_steps(&steps);
+    dep_graph = dep_graph.focus(target);
+    let mut p = parallelize::Parallelizer::from_graph(dep_graph);
 
     let (to_thread, t_recv) = unbounded::<Option<Command>>();
     let (t_send, from_thread) = unbounded::<CommandResult>();
