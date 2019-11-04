@@ -19,3 +19,4 @@ If you have graphviz installed, you can run `dot -Tpng target/dot.dot > out.png`
 Now you have file out.png that displays dependency graph and compilation times
 for different steps of the pipeline. Here the parallelization is clearly visible:
 
+![Dependency graph](example_graph.png)
