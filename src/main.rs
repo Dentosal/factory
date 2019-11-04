@@ -8,6 +8,8 @@ use std::fs;
 use std::path::Path;
 
 fn main() {
+    pretty_env_logger::init();
+
     let args: Vec<String> = env::args().skip(1).collect();
 
     let init_dir = args

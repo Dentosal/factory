@@ -64,10 +64,11 @@ pub struct Command {
 impl Command {
     #[must_use]
     pub fn run(&self) -> CommandResult {
-        use std::io::Write;
         use std::process::Command;
 
         let start = Instant::now();
+
+        log::info!("[step {}] Running: {:?}", self.step_id, self.cmd);
 
         // Check if outputs are already fresh
         if let Some(output) = &self.output {
@@ -82,6 +83,7 @@ impl Command {
                 if let Some(output_m) = output_modified {
                     if let Some(inputs_m) = inputs_modified {
                         if output_m >= inputs_m {
+                            log::info!("[step {}] Fresh", self.step_id);
                             return CommandResult {
                                 step_id: self.step_id,
                                 time: start.elapsed(),
@@ -110,14 +112,7 @@ impl Command {
             fs::write(f, &output.stderr).unwrap();
         }
 
-        if !output.status.success() {
-            println!("PROCESS FAILED");
-            println!("stdout:");
-            std::io::stdout().write_all(&output.stdout).unwrap();
-            println!("stderr:");
-            std::io::stderr().write_all(&output.stderr).unwrap();
-            panic!("END");
-        }
+        log::info!("[step {}] Result: {:?}", self.step_id, output.status.code());
 
         CommandResult {
             step_id: self.step_id,

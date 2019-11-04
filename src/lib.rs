@@ -140,7 +140,7 @@ pub fn run(
             let result = from_thread.recv().unwrap();
 
             if !result.success() {
-                println!("ERROR: {:?}", result);
+                println!("ERROR: {:#?}", result);
                 break;
             }
 
