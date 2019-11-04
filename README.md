@@ -1,18 +1,17 @@
-# Factory - parallel build pipeline
+# Factory - a flexible parallel build system
 
-* Automatically parallelizes build steps
-* Configured with a Python script
+* Configuration written in Python
+* Runs build steps simultaneously
+* Skips unnecessary commands
 
 ![example image](images/rust_os.png)
 
-## Requirements
+## Building
 
-Latest Rust nightly.
+Latest Rust nightly is required.
 
 Python 3.7 or newer, including `libpython3.X` and `libpython3.X-dev` on Linux.
 
-## Usage
-
 ```bash
-PYTHON_SYS_EXECUTABLE=python3.7 cargo run
+PYTHON_SYS_EXECUTABLE=python3.7 cargo build
 ```
