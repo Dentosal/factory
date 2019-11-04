@@ -8,8 +8,3 @@ int main(void) {
     print_int(a);
     return 0;
 }
-
-
-// uint32_t sum(uint32_t a, uint32_t b) {
-//     return a + b;
-// }
