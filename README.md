@@ -6,6 +6,10 @@
 
 ![example image](images/rust_os.png)
 
+## Usage
+
+See [`examples/call_rust_from_c`](examples/call_rust_from_c) for a complete example.
+
 ## Building
 
 Latest Rust nightly is required.
