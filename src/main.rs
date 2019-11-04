@@ -5,19 +5,34 @@ use factory;
 use pyo3::prelude::*;
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::PathBuf;
 
-fn main() {
+use structopt::{self, StructOpt};
+
+#[derive(Debug, StructOpt)]
+#[structopt(author, about)]
+struct Args {
+    /// Disable progress bar and other unnecessary output
+    #[structopt(short, long)]
+    quiet: bool,
+
+    /// Directory to look for Factory.toml
+    #[structopt(short, long, parse(from_os_str))]
+    directory: Option<PathBuf>,
+
+    /// Target name
+    target: Option<String>,
+}
+
+#[paw::main]
+fn main(args: Args) {
     pretty_env_logger::init();
 
-    let args: Vec<String> = env::args().skip(1).collect();
-
     let init_dir = args
-        .get(0)
-        .map(|s| Path::new(s).to_owned())
+        .directory
         .unwrap_or_else(|| env::current_dir().expect("Current directory not accessible"));
 
-    let target_name_arg = args.get(1);
+    let target_name_arg = args.target;
 
     let gil = Python::acquire_gil();
     let py = gil.python();
@@ -42,14 +57,22 @@ fn main() {
         .unwrap();
 
     let target_name = target_name_arg
-        .or_else(|| toml_config.default_target.as_ref())
+        .or_else(|| toml_config.default_target.clone())
         .expect("No target name given");
 
-    let stats = factory::run(py, &steps, target_name, cfg_dict, &toml_config, py_factory)
-        .map_err(|e| {
-            e.print_and_set_sys_last_vars(py);
-        })
-        .unwrap();
+    let stats = factory::run(
+        py,
+        &steps,
+        &target_name,
+        cfg_dict,
+        &toml_config,
+        args.quiet,
+        py_factory,
+    )
+    .map_err(|e| {
+        e.print_and_set_sys_last_vars(py);
+    })
+    .unwrap();
 
     if let Some(path) = toml_config.stats_dot {
         fs::write(path, factory::depgraph::to_dot(&steps, stats).as_bytes())

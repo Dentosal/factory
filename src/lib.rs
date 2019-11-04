@@ -59,6 +59,7 @@ pub fn run(
     target_name: &str,
     cfg_dict: &PyDict,
     toml_config: &TomlConfig,
+    quiet: bool,
     _py_factory: &PyModule,
 ) -> PyResult<RunStatistics> {
     let target = find_target_id(steps, target_name);
@@ -82,13 +83,18 @@ pub fn run(
 
     let mut statistics = RunStatistics::new();
 
-    let pb = ProgressBar::new(p.total_count());
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template("[{elapsed_precise}] {bar:20} [{pos:>4}/{len:4}] {msg:36!}")
-            .progress_chars("##-"),
-    );
-    pb.enable_steady_tick(100);
+    let pb = if quiet {
+        ProgressBar::hidden()
+    } else {
+        let p = ProgressBar::new(p.total_count());
+        p.set_style(
+            ProgressStyle::default_bar()
+                .template("[{elapsed_precise}] {bar:20} [{pos:>4}/{len:4}] {msg:36!}")
+                .progress_chars("##-"),
+        );
+        p.enable_steady_tick(100);
+        p
+    };
 
     loop {
         while let Some(step_id) = p.get_task() {
