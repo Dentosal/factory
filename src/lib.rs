@@ -89,12 +89,20 @@ pub fn run(
         let p = ProgressBar::new(p.total_count());
         p.set_style(
             ProgressStyle::default_bar()
-                .template("[{elapsed_precise}] {bar:20} [{pos:>4}/{len:4}] {msg:36!}")
+                .template("[{elapsed_precise}] {bar:20} [{pos:>4}/{len:4}] {msg}")
                 .progress_chars("##-"),
         );
         p.enable_steady_tick(100);
         p
     };
+
+    let size = terminal_size::terminal_size();
+    let term_w = if let Some((terminal_size::Width(w), _)) = size {
+        w as usize
+    } else {
+        80
+    };
+    let avail_w = if term_w < 44 { 0 } else { term_w - 44 };
 
     loop {
         while let Some(step_id) = p.get_task() {
@@ -102,7 +110,7 @@ pub fn run(
             let mut ids: Vec<StepId> = p.running_ids().into_iter().collect();
             ids.sort();
             pb.set_message(&truncate_ellipisis(
-                36,
+                avail_w,
                 &format!(
                     "{}: {:}",
                     ids.len(),
