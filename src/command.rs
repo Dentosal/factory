@@ -28,6 +28,12 @@ impl CommandResult {
             CommandResultData::Virtual => false,
         }
     }
+
+    /// Output (error) state to stderr
+    pub fn show(self) {
+        eprint!("Step {} [{:?}]: ", self.step_id, self.time);
+        self.data.show();
+    }
 }
 
 #[derive(Debug)]
@@ -35,6 +41,33 @@ pub enum CommandResultData {
     Fresh,
     Output(std::process::Output),
     Virtual,
+}
+impl CommandResultData {
+    /// Output (error) state to stderr
+    pub fn show(self) {
+        use std::io::{self, Write};
+
+        match self {
+            Self::Output(out) => {
+                eprintln!("status = {:?}", out.status.code());
+                eprint!("Command stdout:");
+                if out.stdout.is_empty() {
+                    eprintln!(" (empty)");
+                } else {
+                    eprintln!("");
+                    io::stdout().write_all(&out.stdout).unwrap();
+                }
+                eprint!("Command stderr:");
+                if out.stderr.is_empty() {
+                    eprintln!(" (empty)");
+                } else {
+                    eprintln!("");
+                    io::stderr().write_all(&out.stderr).unwrap();
+                }
+            }
+            other => eprintln!("{:?}", other),
+        }
+    }
 }
 
 fn time_modified(p: &Path) -> Option<SystemTime> {

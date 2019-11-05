@@ -6,6 +6,7 @@
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use pyo3::{prelude::*, types::*};
 use std::collections::HashMap;
+use std::io;
 use std::thread::{self, JoinHandle};
 
 use indicatif::{ProgressBar, ProgressStyle};
@@ -53,6 +54,39 @@ fn find_target_id(steps: &[Step], target_name: &str) -> StepId {
     panic!("No step named {}", target_name);
 }
 
+#[derive(Debug)]
+pub enum RunError {
+    Python(PyErr),
+    Command(CommandResult),
+    Io(io::Error),
+}
+impl RunError {
+    /// Output error state to stderr
+    pub fn show(self, py: Python) {
+        match self {
+            Self::Python(e) => {
+                e.print_and_set_sys_last_vars(py);
+            }
+            Self::Command(c) => {
+                c.show();
+            }
+            other => {
+                eprintln!("{:?}", other);
+            }
+        }
+    }
+}
+impl From<io::Error> for RunError {
+    fn from(error: io::Error) -> Self {
+        Self::Io(error)
+    }
+}
+impl From<PyErr> for RunError {
+    fn from(error: PyErr) -> Self {
+        Self::Python(error)
+    }
+}
+
 pub fn run(
     _py: Python,
     steps: &[Step],
@@ -61,7 +95,7 @@ pub fn run(
     toml_config: &TomlConfig,
     quiet: bool,
     _py_factory: &PyModule,
-) -> PyResult<RunStatistics> {
+) -> Result<RunStatistics, RunError> {
     let target = find_target_id(steps, target_name);
     let step_by_id: HashMap<StepId, &Step> = steps.iter().map(|s| (s.id, s)).collect();
     let mut dep_graph = depgraph::IdGraph::from_steps(&steps);
@@ -126,7 +160,7 @@ pub fn run(
 
                 let mut cmd = py_obj.getattr("cmd")?;
 
-                let py_env = py_obj.getattr("env")?.downcast_ref::<PyDict>()?;
+                let py_env = py_obj.getattr("env")?.downcast_ref::<PyDict>().unwrap();
                 let env: HashMap<String, String> = py_env
                     .iter()
                     .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -192,8 +226,8 @@ pub fn run(
             let result = from_thread.recv().unwrap();
 
             if !result.success() {
-                println!("ERROR: {:#?}", result);
-                break;
+                pb.abandon_with_message("error");
+                return Err(RunError::Command(result));
             }
 
             p.mark_complete(result.step_id);

@@ -27,7 +27,11 @@ struct Args {
 #[paw::main]
 fn main(args: Args) {
     pretty_env_logger::init();
+    let code = inner_main(args);
+    std::process::exit(code);
+}
 
+fn inner_main(args: Args) -> i32 {
     let init_dir = args
         .directory
         .unwrap_or_else(|| env::current_dir().expect("Current directory not accessible"));
@@ -60,7 +64,7 @@ fn main(args: Args) {
         .or_else(|| toml_config.default_target.clone())
         .expect("No target name given");
 
-    let stats = factory::run(
+    match factory::run(
         py,
         &steps,
         &target_name,
@@ -68,14 +72,17 @@ fn main(args: Args) {
         &toml_config,
         args.quiet,
         py_factory,
-    )
-    .map_err(|e| {
-        e.print_and_set_sys_last_vars(py);
-    })
-    .unwrap();
-
-    if let Some(path) = toml_config.stats_dot {
-        fs::write(path, factory::depgraph::to_dot(&steps, stats).as_bytes())
-            .expect("Unable to write `stats_dot` file");
+    ) {
+        Ok(stats) => {
+            if let Some(path) = toml_config.stats_dot {
+                fs::write(path, factory::depgraph::to_dot(&steps, stats).as_bytes())
+                    .expect("Unable to write `stats_dot` file");
+            }
+            0
+        }
+        Err(err) => {
+            err.show(py);
+            1
+        }
     }
 }
