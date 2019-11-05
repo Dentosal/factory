@@ -32,10 +32,7 @@ impl TomlConfig {
 }
 
 /// Read toml and python config files
-pub fn read<'py>(
-    py: Python<'py>,
-    dir_path: &Path,
-) -> PyResult<(Vec<Step<'py>>, &'py PyDict, TomlConfig)> {
+pub fn read<'py>(py: Python<'py>, dir_path: &Path) -> PyResult<(Vec<Step<'py>>, &'py PyDict, TomlConfig)> {
     let contents = fs::read(dir_path.join("Factory.toml")).expect("Factory.toml missing");
     let mut toml_config: TomlConfig = toml::from_slice(&contents).expect("Invalid toml");
 
@@ -57,8 +54,7 @@ pub fn read<'py>(
     } else {
         let py_code_path = toml_config.root_dir().join(&toml_config.config);
         let py_code =
-            String::from_utf8(fs::read(&py_code_path).expect("Python config file not found"))
-                .unwrap();
+            String::from_utf8(fs::read(&py_code_path).expect("Python config file not found")).unwrap();
         PyModule::from_code(py, &py_code, py_code_path.to_str().unwrap(), "config")?
     };
 
@@ -146,7 +142,8 @@ fn create_steps<'a>(
     requires_id: StepId,  // Requirement for the next step
     step_name: &str,      // Name of the current Python step function
     last_part: bool,      // Is the `step_name` completed after this step
-) -> PyResult<Vec<Step<'a>>> {
+) -> PyResult<Vec<Step<'a>>>
+{
     if py.is_instance::<PyTuple, _>(py_step)? {
         // Tuple, i.e. a sequence of steps
         let tuple: &PyTuple = py_step.downcast_ref::<PyTuple>().unwrap();

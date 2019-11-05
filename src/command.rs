@@ -64,7 +64,7 @@ impl CommandResultData {
                     eprintln!("");
                     io::stderr().write_all(&out.stderr).unwrap();
                 }
-            }
+            },
             other => eprintln!("{:?}", other),
         }
     }
@@ -107,11 +107,7 @@ impl Command {
         if let Some(output) = &self.output {
             if let Some(inputs) = &self.inputs {
                 let output_modified = time_modified(output.as_ref());
-                let inputs_modified = inputs
-                    .iter()
-                    .map(|p| time_modified(p.as_ref()))
-                    .max()
-                    .flatten();
+                let inputs_modified = inputs.iter().map(|p| time_modified(p.as_ref())).max().flatten();
 
                 if let Some(output_m) = output_modified {
                     if let Some(inputs_m) = inputs_modified {
@@ -155,10 +151,7 @@ impl Command {
     }
 
     pub fn new(
-        step_id: StepId,
-        cmd_obj: &PyAny,
-        default_root_dir: &Path,
-        env: HashMap<String, String>,
+        step_id: StepId, cmd_obj: &PyAny, default_root_dir: &Path, env: HashMap<String, String>,
     ) -> PyResult<Self> {
         let cmd: Vec<String> = cmd_obj
             .getattr("cmd")?

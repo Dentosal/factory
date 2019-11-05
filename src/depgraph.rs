@@ -48,12 +48,7 @@ impl IdGraph {
         Self(
             required_steps
                 .iter()
-                .map(|id| {
-                    (
-                        *id,
-                        self.0[id].intersection(&required_steps).copied().collect(),
-                    )
-                })
+                .map(|id| (*id, self.0[id].intersection(&required_steps).copied().collect()))
                 .collect(),
         )
     }

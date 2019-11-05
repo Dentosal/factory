@@ -66,13 +66,13 @@ impl RunError {
         match self {
             Self::Python(e) => {
                 e.print_and_set_sys_last_vars(py);
-            }
+            },
             Self::Command(c) => {
                 c.show();
-            }
+            },
             other => {
                 eprintln!("{:?}", other);
-            }
+            },
         }
     }
 }
@@ -88,14 +88,10 @@ impl From<PyErr> for RunError {
 }
 
 pub fn run(
-    _py: Python,
-    steps: &[Step],
-    target_name: &str,
-    cfg_dict: &PyDict,
-    toml_config: &TomlConfig,
-    quiet: bool,
+    _py: Python, steps: &[Step], target_name: &str, cfg_dict: &PyDict, toml_config: &TomlConfig, quiet: bool,
     _py_factory: &PyModule,
-) -> Result<RunStatistics, RunError> {
+) -> Result<RunStatistics, RunError>
+{
     let target = find_target_id(steps, target_name);
     let step_by_id: HashMap<StepId, &Step> = steps.iter().map(|s| (s.id, s)).collect();
     let mut dep_graph = depgraph::IdGraph::from_steps(&steps);
@@ -181,21 +177,18 @@ pub fn run(
                                 env,
                             )?))
                             .unwrap();
-                    }
+                    },
                     "Expr" => {
                         let expr = cmd.getattr("expr")?;
                         let name: String = cmd.getattr("name")?.extract()?;
                         cfg_dict.set_item(name, expr)?;
                         p.mark_complete(step_id);
-                        statistics.commands.insert(
+                        statistics.commands.insert(step_id, CommandResult {
                             step_id,
-                            CommandResult {
-                                step_id,
-                                time: start.elapsed(),
-                                data: CommandResultData::Virtual,
-                            },
-                        );
-                    }
+                            time: start.elapsed(),
+                            data: CommandResultData::Virtual,
+                        });
+                    },
                     "Assert" => {
                         let expr: bool = cmd.getattr("expr")?.extract()?;
                         let msg = cmd.getattr("error_msg")?.to_string();
@@ -204,15 +197,12 @@ pub fn run(
                             panic!("STOP {}", msg);
                         }
                         p.mark_complete(step_id);
-                        statistics.commands.insert(
+                        statistics.commands.insert(step_id, CommandResult {
                             step_id,
-                            CommandResult {
-                                step_id,
-                                time: start.elapsed(),
-                                data: CommandResultData::Virtual,
-                            },
-                        );
-                    }
+                            time: start.elapsed(),
+                            data: CommandResultData::Virtual,
+                        });
+                    },
                     _ => unimplemented!("??"),
                 }
             } else {

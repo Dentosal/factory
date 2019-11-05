@@ -79,10 +79,10 @@ fn inner_main(args: Args) -> i32 {
                     .expect("Unable to write `stats_dot` file");
             }
             0
-        }
+        },
         Err(err) => {
             err.show(py);
             1
-        }
+        },
     }
 }
