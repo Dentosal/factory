@@ -163,7 +163,8 @@ pub fn run(
                     .collect();
 
                 let mut ty: String = cmd.getattr("__class__")?.getattr("__name__")?.to_string();
-                if ty.as_str() == "function" {
+                // While to support recursive functions
+                while ty.as_str() == "function" {
                     cmd = cmd.call1((cfg_dict,))?;
                     ty = cmd.getattr("__class__")?.getattr("__name__")?.to_string();
                 }
