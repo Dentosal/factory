@@ -1,10 +1,12 @@
 use pyo3::{prelude::*, types::*};
 use std::collections::HashMap;
 use std::fs;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
 use super::StepId;
+use crate::config_file::ExecConfig;
 
 #[derive(Debug)]
 pub struct CommandResult {
@@ -45,8 +47,6 @@ pub enum CommandResultData {
 impl CommandResultData {
     /// Output (error) state to stderr
     pub fn show(self) {
-        use std::io::{self, Write};
-
         match self {
             Self::Output(out) => {
                 eprintln!("status = {:?}", out.status.code());
@@ -90,6 +90,8 @@ pub struct Command {
     inputs: Option<Vec<PathBuf>>,
     output: Option<PathBuf>,
     cwd: PathBuf,
+    stdout_pass: bool,
+    stderr_pass: bool,
     stdout_file: Option<PathBuf>,
     stderr_file: Option<PathBuf>,
     env: HashMap<String, String>,
@@ -133,6 +135,14 @@ impl Command {
             .output()
             .expect("failed to execute process");
 
+        if self.stdout_pass {
+            io::stdout().write_all(&output.stdout).unwrap();
+        }
+
+        if self.stderr_pass {
+            io::stderr().write_all(&output.stderr).unwrap();
+        }
+
         if let Some(f) = &self.stdout_file {
             fs::write(f, &output.stdout).unwrap();
         }
@@ -151,7 +161,7 @@ impl Command {
     }
 
     pub fn new(
-        step_id: StepId, cmd_obj: &PyAny, default_root_dir: &Path, env: HashMap<String, String>,
+        step_id: StepId, cmd_obj: &PyAny, exec_config: &ExecConfig, env: HashMap<String, String>,
     ) -> PyResult<Self> {
         let cmd: Vec<String> = cmd_obj
             .getattr("cmd")?
@@ -192,7 +202,7 @@ impl Command {
 
         let py_cwd = cmd_obj.getattr("cwd")?;
         let cwd: PathBuf = if py_cwd.is_none() {
-            default_root_dir.to_owned()
+            exec_config.root_dir.clone().unwrap()
         } else {
             Path::new(&py_cwd.to_string()).to_owned()
         };
@@ -217,6 +227,8 @@ impl Command {
             inputs,
             output,
             cwd,
+            stdout_pass: exec_config.transparent,
+            stderr_pass: exec_config.transparent,
             stdout_file,
             stderr_file,
             env,

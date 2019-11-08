@@ -1,58 +1,21 @@
 use pyo3::{prelude::*, types::*};
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
-use std::path::{Path, PathBuf};
 
 use super::depgraph;
 use super::step::{Step, StepId};
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TomlConfig {
-    /// Root directory override.
-    /// Set to correct value after reading this file if None.
-    pub root_dir: Option<PathBuf>,
-    /// Python config file
-    pub config: PathBuf,
-    /// Default target to execute
-    pub default_target: Option<String>,
-    /// Number of threads, logical CPU core count is used by default
-    pub threads: Option<usize>,
-    /// Output file for graphviz dot file containing build metadata
-    pub stats_dot: Option<PathBuf>,
-}
-impl TomlConfig {
-    pub fn root_dir(&self) -> PathBuf {
-        self.root_dir.clone().unwrap()
-    }
-
-    pub fn threads(&self) -> usize {
-        self.threads.unwrap_or_else(num_cpus::get)
-    }
-}
+use super::ExecConfig;
 
 /// Read toml and python config files
-pub fn read<'py>(py: Python<'py>, dir_path: &Path) -> PyResult<(Vec<Step<'py>>, &'py PyDict, TomlConfig)> {
-    let contents = fs::read(dir_path.join("Factory.toml")).expect("Factory.toml missing");
-    let mut toml_config: TomlConfig = toml::from_slice(&contents).expect("Invalid toml");
-
-    toml_config.root_dir = Some(if let Some(cfg_rd) = toml_config.root_dir {
-        cfg_rd.canonicalize().unwrap()
-    } else {
-        dir_path.canonicalize().unwrap()
-    });
-
-    // TODO: Validate configuration options
-
+pub fn read<'py>(py: Python<'py>, exec_config: &ExecConfig) -> PyResult<(Vec<Step<'py>>, &'py PyDict)> {
     // Import the python configuration
-    let py_code_path = toml_config.root_dir().join(&toml_config.config);
+    let py_code_path = exec_config.root_dir().join(&exec_config.python());
     let py_config = if py_code_path.is_dir() {
         let sys = py.import("sys")?;
         let sys_path: &PyList = sys.get("path")?.downcast_ref::<PyList>()?;
-        sys_path.insert(0, toml_config.root_dir().to_str().unwrap())?;
+        sys_path.insert(0, exec_config.root_dir().to_str().unwrap())?;
         PyModule::import(py, "config")?
     } else {
-        let py_code_path = toml_config.root_dir().join(&toml_config.config);
         let py_code =
             String::from_utf8(fs::read(&py_code_path).expect("Python config file not found")).unwrap();
         PyModule::from_code(py, &py_code, py_code_path.to_str().unwrap(), "config")?
@@ -61,10 +24,10 @@ pub fn read<'py>(py: Python<'py>, dir_path: &Path) -> PyResult<(Vec<Step<'py>>, 
     // Create objects for calling functions
     let py_pathlib = py.import("pathlib")?;
     let py_path: &PyAny = py_pathlib.get("Path")?.extract()?;
-    let root_path = py_path.call1((toml_config.root_dir().to_str().unwrap(),))?;
+    let root_path = py_path.call1((exec_config.root_dir().to_str().unwrap(),))?;
     let cfg_dict = PyDict::new(py);
-    cfg_dict.set_item("root_dir", toml_config.root_dir().to_str().unwrap())?;
-    cfg_dict.set_item("threads", toml_config.threads())?;
+    cfg_dict.set_item("root_dir", exec_config.root_dir().to_str().unwrap())?;
+    cfg_dict.set_item("threads", exec_config.threads())?;
 
     // Call initialization function
     if let Ok(py_init) = py_config.get("init") {
@@ -126,7 +89,7 @@ pub fn read<'py>(py: Python<'py>, dir_path: &Path) -> PyResult<(Vec<Step<'py>>, 
     }
 
     depgraph::linearize(&mut steps);
-    Ok((steps, &cfg_dict, toml_config))
+    Ok((steps, &cfg_dict))
 }
 
 /// `py_step` can be either: FactoryStep, Tuple[FactoryStep], Set[FactoryStep],

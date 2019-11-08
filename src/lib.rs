@@ -13,13 +13,15 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 pub mod command;
 pub mod config;
+pub mod config_file;
 pub mod depgraph;
 pub mod parallelize;
 pub mod step;
 
 use self::command::{Command, CommandResult, CommandResultData};
-use self::config::TomlConfig;
 use self::step::{Step, StepId};
+
+pub use self::config_file::ExecConfig;
 
 #[derive(Debug, Default)]
 pub struct RunStatistics {
@@ -88,7 +90,7 @@ impl From<PyErr> for RunError {
 }
 
 pub fn run(
-    _py: Python, steps: &[Step], target_name: &str, cfg_dict: &PyDict, toml_config: &TomlConfig, quiet: bool,
+    _py: Python, steps: &[Step], target_name: &str, cfg_dict: &PyDict, exec_config: &ExecConfig,
     _py_factory: &PyModule,
 ) -> Result<RunStatistics, RunError>
 {
@@ -101,7 +103,7 @@ pub fn run(
     let (to_thread, t_recv) = unbounded::<Option<Command>>();
     let (t_send, from_thread) = unbounded::<CommandResult>();
 
-    let parallel = toml_config.threads();
+    let parallel = exec_config.threads();
 
     let threads: Vec<JoinHandle<()>> = (0..parallel)
         .map(|_| {
@@ -113,7 +115,7 @@ pub fn run(
 
     let mut statistics = RunStatistics::new();
 
-    let pb = if quiet {
+    let pb = if exec_config.quiet {
         ProgressBar::hidden()
     } else {
         let p = ProgressBar::new(p.total_count());
@@ -171,12 +173,7 @@ pub fn run(
                 match ty.as_str() {
                     "Cmd" => {
                         to_thread
-                            .send(Some(Command::new(
-                                step_id,
-                                cmd,
-                                toml_config.root_dir.clone().unwrap().as_ref(),
-                                env,
-                            )?))
+                            .send(Some(Command::new(step_id, cmd, exec_config, env)?))
                             .unwrap();
                     },
                     "Expr" => {
