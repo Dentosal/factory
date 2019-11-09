@@ -189,7 +189,7 @@ impl Command {
             .collect();
 
         let py_inputs = cmd_obj.getattr("inputs")?;
-        let inputs: Option<Vec<PathBuf>> = if py_inputs.is_none() {
+        let inputs: Option<Vec<PathBuf>> = if exec_config.refresh || py_inputs.is_none() {
             None
         } else {
             Some(

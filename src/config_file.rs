@@ -9,7 +9,7 @@ use structopt::{self, StructOpt};
 pub struct ExecConfig {
     /// Root directory override.
     /// Current directory is used if this is not set.
-    #[structopt(short, long, parse(from_os_str))]
+    #[structopt(short = "-d", long, parse(from_os_str))]
     pub root_dir: Option<PathBuf>,
 
     /// Python config file.
@@ -19,6 +19,10 @@ pub struct ExecConfig {
     /// Number of threads, logical CPU core count is used by default
     #[structopt(short = "-p", long)]
     pub threads: Option<usize>,
+
+    /// Run all commands, even if the output file is fresh
+    #[structopt(short, long)]
+    pub refresh: bool,
 
     /// Disable progress bar and other unnecessary output
     #[structopt(short, long)]
@@ -60,6 +64,7 @@ impl ExecConfig {
             root_dir: self.root_dir.or(other.root_dir),
             config: self.config.or(other.config),
             threads: self.threads.or(other.threads),
+            refresh: self.refresh || other.refresh,
             quiet: self.quiet || other.quiet,
             transparent: self.transparent || other.transparent,
             stats_dot: self.stats_dot.or(other.stats_dot),
