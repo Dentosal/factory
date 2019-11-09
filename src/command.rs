@@ -103,7 +103,7 @@ impl Command {
 
         let start = Instant::now();
 
-        log::info!("[step {}] Running: {:?}", self.step_id, self.cmd);
+        log::info!("[step {:>4}] Running: {:?}", self.step_id, self.cmd);
 
         // Check if outputs are already fresh
         if let Some(output) = &self.output {
@@ -111,10 +111,23 @@ impl Command {
                 let output_modified = time_modified(output.as_ref());
                 let inputs_modified = inputs.iter().map(|p| time_modified(p.as_ref())).max().flatten();
 
+                log::trace!(
+                    "[step {:>4}] output [{:?}] ({:?})",
+                    self.step_id,
+                    output_modified,
+                    output
+                );
+                log::trace!(
+                    "[step {:>4}] inputs [{:?}] ({:?})",
+                    self.step_id,
+                    inputs_modified,
+                    inputs
+                );
+
                 if let Some(output_m) = output_modified {
                     if let Some(inputs_m) = inputs_modified {
                         if output_m >= inputs_m {
-                            log::info!("[step {}] Fresh", self.step_id);
+                            log::info!("[step {:>4}] Fresh", self.step_id);
                             return CommandResult {
                                 step_id: self.step_id,
                                 time: start.elapsed(),
@@ -151,7 +164,7 @@ impl Command {
             fs::write(f, &output.stderr).unwrap();
         }
 
-        log::info!("[step {}] Result: {:?}", self.step_id, output.status.code());
+        log::info!("[step {:>4}] Result: {:?}", self.step_id, output.status.code());
 
         CommandResult {
             step_id: self.step_id,
