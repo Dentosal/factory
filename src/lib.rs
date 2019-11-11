@@ -168,6 +168,8 @@ pub fn run(
                 assert_eq!(cond_ty, "bool", "Condition must be a boolean");
                 if !cond.is_true()? {
                     log::info!("[step {:>4}] Skip (condition)", step_id);
+                    p.mark_complete(step_id);
+                    continue;
                 }
 
                 let mut cmd = py_obj.getattr("cmd")?;
