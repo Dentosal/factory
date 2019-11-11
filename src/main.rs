@@ -60,6 +60,14 @@ fn inner_main(mut args: Args) -> i32 {
         })
         .unwrap();
 
+    if let Some(path) = &args.exec.plan_dot {
+        fs::write(
+            path,
+            factory::depgraph::to_dot(&steps, factory::RunStatistics::new()).as_bytes(),
+        )
+        .expect("Unable to write `plan_dot` file");
+    }
+
     let target_name = args.exec.target.clone().expect("No target name given");
 
     match factory::run(py, &steps, &target_name, cfg_dict, &args.exec, py_factory) {

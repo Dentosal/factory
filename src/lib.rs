@@ -1,4 +1,3 @@
-#![feature(option_flattening)]
 #![deny(unused_must_use)]
 #![warn(clippy::all)]
 #![warn(clippy::cargo)]
@@ -15,10 +14,12 @@ pub mod command;
 pub mod config;
 pub mod config_file;
 pub mod depgraph;
+pub mod envdict;
 pub mod parallelize;
 pub mod step;
 
 use self::command::{Command, CommandResult, CommandResultData};
+use self::envdict::EnvDict;
 use self::step::{Step, StepId};
 
 pub use self::config_file::ExecConfig;
@@ -156,14 +157,20 @@ pub fn run(
             if let Some(py_obj) = step.py_obj {
                 let start = std::time::Instant::now();
 
+                let env = EnvDict::from_pydict(py_obj.getattr("env")?);
+
+                let mut cond = py_obj.getattr("condition")?;
+                let mut cond_ty: String = cond.getattr("__class__")?.getattr("__name__")?.to_string();
+                while cond_ty.as_str() == "function" {
+                    cond = cond.call1((cfg_dict,))?;
+                    cond_ty = cond.getattr("__class__")?.getattr("__name__")?.to_string();
+                }
+                assert_eq!(cond_ty, "bool", "Condition must be a boolean");
+                if !cond.is_true()? {
+                    log::info!("[step {:>4}] Skip (condition)", step_id);
+                }
+
                 let mut cmd = py_obj.getattr("cmd")?;
-
-                let py_env = py_obj.getattr("env")?.downcast_ref::<PyDict>().unwrap();
-                let env: HashMap<String, String> = py_env
-                    .iter()
-                    .map(|(k, v)| (k.to_string(), v.to_string()))
-                    .collect();
-
                 let mut ty: String = cmd.getattr("__class__")?.getattr("__name__")?.to_string();
                 // While to support recursive functions
                 while ty.as_str() == "function" {
@@ -180,6 +187,7 @@ pub fn run(
                         let expr = cmd.getattr("expr")?;
                         let name: String = cmd.getattr("name")?.extract()?;
                         cfg_dict.set_item(name, expr)?;
+                        // TODO: Error if freshvar is not None
                         p.mark_complete(step_id);
                         statistics.commands.insert(step_id, CommandResult {
                             step_id,
@@ -194,6 +202,7 @@ pub fn run(
                             // TODO: proper error handling
                             panic!("STOP {}", msg);
                         }
+                        // TODO: Error if freshvar is not None
                         p.mark_complete(step_id);
                         statistics.commands.insert(step_id, CommandResult {
                             step_id,
@@ -213,9 +222,18 @@ pub fn run(
         } else {
             let result = from_thread.recv().unwrap();
 
+            log::trace!("[step {:>4}] Result: {:?}", result.step_id, result);
+
             if !result.success() {
                 pb.abandon_with_message("error");
                 return Err(RunError::Command(result));
+            }
+
+            if let Some(py_obj) = step_by_id[&result.step_id].py_obj {
+                let varname = py_obj.getattr("freshvar")?;
+                if !varname.is_none() {
+                    cfg_dict.set_item(varname, result.fresh())?;
+                }
             }
 
             p.mark_complete(result.step_id);
@@ -239,7 +257,13 @@ pub fn run(
 fn runner(rx: Receiver<Option<Command>>, tx: Sender<CommandResult>) {
     while let Ok(Some(cmd)) = rx.recv() {
         let result = cmd.run();
-        tx.send(result).unwrap();
+        let send_result = tx.send(result);
+        if send_result.is_err() {
+            // Send errors only happen if the main thread has crashed,
+            // as it otherwise always waits the thread to complete
+            // before closing the socket. It's safe to simply return here.
+            return;
+        }
     }
 }
 

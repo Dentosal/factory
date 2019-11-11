@@ -3,6 +3,7 @@ from typing import Any, List, Set, Dict, Optional, Union, Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+EnvDict = Dict[str, Union[Path, str, None]]
 
 @dataclass(frozen=True, eq=True)
 class Cmd:
@@ -12,6 +13,7 @@ class Cmd:
     inputs: Optional[Set[Path]] = None  # TODO: lists, flattening?
     output: Optional[Path] = None
     cwd: Optional[Path] = None
+    env: EnvDict = field(default_factory=dict)
     stdout_file: Optional[Path] = None
     stderr_file: Optional[Path] = None
 
@@ -46,12 +48,14 @@ class Assert:
 
 StepCmd = Union[Cmd, Expr, Assert]
 
-
 @dataclass(frozen=True, eq=True)
 class Step:
     cmd: Union[StepCmd, Callable[[Mapping[str, Any]], StepCmd]]
     requires: Set[Callable[[Path, Mapping[str, Any]], Cmd]] = field(default_factory=set)
-    env: Dict[str, Union[Path, str, None]] = field(default_factory=dict)
+    env: EnvDict = field(default_factory=dict)
+    freshvar: Union[None, str, Callable[[EnvDict], str]] = None
+    condition: Union[bool, Callable[[EnvDict], bool]] = True
+    note: Union[None, str] = None
 
     def __hash__(self):
         return hash(repr(self))

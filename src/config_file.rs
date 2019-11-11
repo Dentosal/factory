@@ -32,7 +32,11 @@ pub struct ExecConfig {
     #[structopt(short, long)]
     pub transparent: bool,
 
-    /// Output file for graphviz dot file containing build metadata
+    /// Output file for graphviz dot file containing build plan
+    #[structopt(short, long, parse(from_os_str))]
+    pub plan_dot: Option<PathBuf>,
+
+    /// Output file for graphviz dot file containing build statistic
     #[structopt(short, long, parse(from_os_str))]
     pub stats_dot: Option<PathBuf>,
 
@@ -67,6 +71,7 @@ impl ExecConfig {
             refresh: self.refresh || other.refresh,
             quiet: self.quiet || other.quiet,
             transparent: self.transparent || other.transparent,
+            plan_dot: self.plan_dot.or(other.plan_dot),
             stats_dot: self.stats_dot.or(other.stats_dot),
             target: self.target.or(other.target),
         }

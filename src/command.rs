@@ -7,6 +7,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use super::StepId;
 use crate::config_file::ExecConfig;
+use crate::envdict::EnvDict;
 
 #[derive(Debug)]
 pub struct CommandResult {
@@ -20,6 +21,7 @@ impl CommandResult {
             CommandResultData::Fresh => true,
             CommandResultData::Output(ref out) => out.status.success(),
             CommandResultData::Virtual => true,
+            CommandResultData::ConditionFalse => true,
         }
     }
 
@@ -28,6 +30,7 @@ impl CommandResult {
             CommandResultData::Fresh => true,
             CommandResultData::Output(_) => false,
             CommandResultData::Virtual => false,
+            CommandResultData::ConditionFalse => false,
         }
     }
 
@@ -40,9 +43,14 @@ impl CommandResult {
 
 #[derive(Debug)]
 pub enum CommandResultData {
+    /// Output file was fresh
     Fresh,
+    /// Command completed
     Output(std::process::Output),
+    /// No actual content to run
     Virtual,
+    /// Skipped based on the condition parameter
+    ConditionFalse,
 }
 impl CommandResultData {
     /// Output (error) state to stderr
@@ -104,6 +112,7 @@ impl Command {
         let start = Instant::now();
 
         log::info!("[step {:>4}] Running: {:?}", self.step_id, self.cmd);
+        log::info!("[step {:>4}] Cmd env: {:?}", self.step_id, self.env);
 
         // Check if outputs are already fresh
         if let Some(output) = &self.output {
@@ -173,9 +182,7 @@ impl Command {
         }
     }
 
-    pub fn new(
-        step_id: StepId, cmd_obj: &PyAny, exec_config: &ExecConfig, env: HashMap<String, String>,
-    ) -> PyResult<Self> {
+    pub fn new(step_id: StepId, cmd_obj: &PyAny, exec_config: &ExecConfig, env: EnvDict) -> PyResult<Self> {
         let cmd: Vec<String> = cmd_obj
             .getattr("cmd")?
             .iter()?
@@ -220,6 +227,13 @@ impl Command {
             Path::new(&py_cwd.to_string()).to_owned()
         };
 
+        let py_env = cmd_obj.getattr("env")?;
+        let cmd_env = if py_env.is_none() {
+            EnvDict::new()
+        } else {
+            EnvDict::from_pydict(py_env)
+        };
+
         let py_stdout_file = cmd_obj.getattr("stdout_file")?;
         let stdout_file: Option<PathBuf> = if py_stdout_file.is_none() {
             None
@@ -244,7 +258,7 @@ impl Command {
             stderr_pass: exec_config.transparent,
             stdout_file,
             stderr_file,
-            env,
+            env: env.merge(cmd_env).finalize(),
         })
     }
 }
